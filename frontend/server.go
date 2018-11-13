@@ -10,10 +10,12 @@ import (
 
 	"github.com/Medium/brigade/backend"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"go.uber.org/zap"
 )
 
 type Server struct {
 	Backend *backend.Storage
+	Logger  *zap.Logger
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -44,9 +46,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) ServeListing(ctx context.Context, path string, w http.ResponseWriter) {
+	s.Logger.Info("Listing objects", zap.String("path", path))
+
 	entries, err := s.Backend.List(ctx, path)
 	if err != nil {
-		serveError(w, "list S3 objects", err)
+		s.serveError(w, "list S3 objects", err)
 		return
 	}
 
@@ -58,9 +62,11 @@ func (s *Server) ServeListing(ctx context.Context, path string, w http.ResponseW
 }
 
 func (s *Server) ServeHead(ctx context.Context, path string, cond *backend.Conditions, w http.ResponseWriter) {
+	s.Logger.Info("Serving object head", zap.String("path", path))
+
 	meta, err := s.Backend.Head(ctx, path, cond)
 	if err != nil {
-		serveError(w, "HEAD an S3 object", err)
+		s.serveError(w, "HEAD an S3 object", err)
 		return
 	}
 
@@ -69,9 +75,11 @@ func (s *Server) ServeHead(ctx context.Context, path string, cond *backend.Condi
 }
 
 func (s *Server) ServeObject(ctx context.Context, path string, cond *backend.Conditions, w http.ResponseWriter) {
+	s.Logger.Info("Serving object", zap.String("path", path))
+
 	meta, body, err := s.Backend.Get(ctx, path, cond)
 	if err != nil {
-		serveError(w, "GET an S3 object", err)
+		s.serveError(w, "GET an S3 object", err)
 		return
 	}
 
@@ -85,7 +93,7 @@ func (s *Server) ServeObject(ctx context.Context, path string, cond *backend.Con
 	io.Copy(w, body)
 }
 
-func serveError(w http.ResponseWriter, op string, err error) {
+func (s *Server) serveError(w http.ResponseWriter, op string, err error) {
 	status := http.StatusInternalServerError
 
 	if reqerr, ok := err.(awserr.RequestFailure); ok {
@@ -100,6 +108,11 @@ func serveError(w http.ResponseWriter, op string, err error) {
 			return
 		}
 	}
+
+	s.Logger.Error("Operation failed",
+		zap.String("operation", op),
+		zap.Int("status", status),
+		zap.Error(err))
 
 	http.Error(w, fmt.Sprintf("Failed to %s: %v", op, err), status)
 }
