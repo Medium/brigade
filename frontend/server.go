@@ -95,6 +95,10 @@ func serveError(w http.ResponseWriter, op string, err error) {
 			w.WriteHeader(status)
 			return
 		}
+		if status == http.StatusNotFound {
+			http.Error(w, "Not found", status)
+			return
+		}
 	}
 
 	http.Error(w, fmt.Sprintf("Failed to %s: %v", op, err), status)
