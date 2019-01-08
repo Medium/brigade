@@ -10,6 +10,7 @@ import (
 
 	"github.com/Medium/brigade/backend"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/golang/gddo/httputil/header"
 	"go.uber.org/zap"
 )
 
@@ -31,7 +32,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if path == "" || strings.HasSuffix(path, "/") {
-		s.ServeListing(ctx, path, w)
+		s.ServeListing(ctx, path, w, r)
 		return
 	}
 
@@ -45,7 +46,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.ServeObject(ctx, path, cond, w)
 }
 
-func (s *Server) ServeListing(ctx context.Context, path string, w http.ResponseWriter) {
+func (s *Server) ServeListing(ctx context.Context, path string, w http.ResponseWriter, r *http.Request) {
 	s.Logger.Info("Listing objects", zap.String("path", path))
 
 	entries, err := s.Backend.List(ctx, path)
@@ -54,11 +55,21 @@ func (s *Server) ServeListing(ctx context.Context, path string, w http.ResponseW
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	if requestsHTML(r) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
 
-	enc := json.NewEncoder(w)
-	enc.Encode(entries)
+		listing := Listing{Host: r.URL.Host, Path: path, Entries: entries}
+		if err := listingTemplate.Execute(w, &listing); err != nil {
+			s.Logger.Error("Error rendering listing template", zap.Error(err))
+		}
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		enc := json.NewEncoder(w)
+		enc.Encode(entries)
+	}
 }
 
 func (s *Server) ServeHead(ctx context.Context, path string, cond *backend.Conditions, w http.ResponseWriter) {
@@ -115,4 +126,19 @@ func (s *Server) serveError(w http.ResponseWriter, op string, err error) {
 		zap.Error(err))
 
 	http.Error(w, fmt.Sprintf("Failed to %s: %v", op, err), status)
+}
+
+func requestsHTML(r *http.Request) bool {
+	accepts := header.ParseAccept(r.Header, "Accept")
+
+	var html, json float64
+	for _, a := range accepts {
+		if a.Value == "text/html" {
+			html = a.Q
+		} else if a.Value == "application/json" {
+			json = a.Q
+		}
+	}
+
+	return html > json
 }

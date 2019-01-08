@@ -63,6 +63,14 @@
   version = "v1.15.74"
 
 [[projects]]
+  branch = "master"
+  digest = "1:01745416ed734d0dbd8f2a25344536e399ee60319654873da12b107e9e3cb309"
+  name = "github.com/golang/gddo"
+  packages = ["httputil/header"]
+  pruneopts = "UT"
+  revision = "9bd4a32950217197bb319565e843237cca7f85d2"
+
+[[projects]]
   digest = "1:e22af8c7518e1eab6f2eab2b7d7558927f816262586cd6ed9f349c97a6c285c4"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
@@ -116,6 +124,7 @@
     "github.com/aws/aws-sdk-go/aws/awserr",
     "github.com/aws/aws-sdk-go/aws/session",
     "github.com/aws/aws-sdk-go/service/s3",
+    "github.com/golang/gddo/httputil/header",
     "go.uber.org/zap",
     "gopkg.in/alecthomas/kingpin.v2",
   ]
