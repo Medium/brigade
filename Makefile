@@ -1,6 +1,6 @@
 IMAGE ?= docker.medium.build/brigade
 COMMIT ?= $(shell git rev-parse --short HEAD)
-TAG ?= $(shell date -u +%Y%m%d-%H%M%S)-$(COMMIT)
+TAG := $(shell date -u +%Y%m%d-%H%M%S)-$(COMMIT)
 
 .PHONY: all brigade image push
 
